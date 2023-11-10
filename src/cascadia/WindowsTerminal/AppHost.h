@@ -16,7 +16,6 @@ public:
             std::unique_ptr<IslandWindow> window = nullptr) noexcept;
 
     void AppTitleChanged(const winrt::Windows::Foundation::IInspectable& sender, winrt::hstring newTitle);
-    void LastTabClosed(const winrt::Windows::Foundation::IInspectable& sender, const winrt::TerminalApp::LastTabClosedEventArgs& args);
     void Initialize();
     void Close();
 
@@ -60,8 +59,7 @@ private:
 
     uint32_t _launchShowWindowCommand{ SW_NORMAL };
 
-    void _preInit();
-
+    winrt::fire_and_forget _quit();
     void _revokeWindowCallbacks();
 
     void _HandleCommandlineArgs(const winrt::Microsoft::Terminal::Remoting::WindowRequestedArgs& args);
@@ -96,8 +94,6 @@ private:
     void _DispatchCommandline(winrt::Windows::Foundation::IInspectable sender,
                               winrt::Microsoft::Terminal::Remoting::CommandlineArgs args);
 
-    winrt::Windows::Foundation::IAsyncOperation<winrt::hstring> _GetWindowLayoutAsync();
-
     void _HandleSummon(const winrt::Windows::Foundation::IInspectable& sender,
                        const winrt::Microsoft::Terminal::Remoting::SummonWindowBehavior& args);
 
@@ -107,10 +103,6 @@ private:
                           const winrt::Windows::Foundation::IInspectable& args);
     winrt::fire_and_forget _RenameWindowRequested(const winrt::Windows::Foundation::IInspectable sender,
                                                   const winrt::TerminalApp::RenameWindowRequestedArgs args);
-
-    GUID _CurrentDesktopGuid();
-
-    bool _LazyLoadDesktopManager();
 
     void _HandleSettingsChanged(const winrt::Windows::Foundation::IInspectable& sender,
                                 const winrt::TerminalApp::SettingsLoadEventArgs& args);
@@ -164,7 +156,6 @@ private:
     void _stopFrameTimer();
     void _updateFrameColor(const winrt::Windows::Foundation::IInspectable&, const winrt::Windows::Foundation::IInspectable&);
 
-    winrt::event_token _GetWindowLayoutRequestedToken;
     winrt::event_token _frameTimerToken;
 
     // Helper struct. By putting these all into one struct, we can revoke them
@@ -191,7 +182,7 @@ private:
         winrt::TerminalApp::TerminalWindow::SystemMenuChangeRequested_revoker SystemMenuChangeRequested;
         winrt::TerminalApp::TerminalWindow::ChangeMaximizeRequested_revoker ChangeMaximizeRequested;
         winrt::TerminalApp::TerminalWindow::TitleChanged_revoker TitleChanged;
-        winrt::TerminalApp::TerminalWindow::LastTabClosed_revoker LastTabClosed;
+        winrt::TerminalApp::TerminalWindow::CloseWindowRequested_revoker CloseWindowRequested;
         winrt::TerminalApp::TerminalWindow::SetTaskbarProgress_revoker SetTaskbarProgress;
         winrt::TerminalApp::TerminalWindow::IdentifyWindowsRequested_revoker IdentifyWindowsRequested;
         winrt::TerminalApp::TerminalWindow::RenameWindowRequested_revoker RenameWindowRequested;
@@ -205,7 +196,6 @@ private:
         winrt::TerminalApp::TerminalWindow::PropertyChanged_revoker PropertyChanged;
         winrt::TerminalApp::TerminalWindow::SettingsChanged_revoker SettingsChanged;
 
-        winrt::Microsoft::Terminal::Remoting::WindowManager::QuitAllRequested_revoker QuitAllRequested;
         winrt::Microsoft::Terminal::Remoting::Peasant::SendContentRequested_revoker SendContentRequested;
     } _revokers{};
 

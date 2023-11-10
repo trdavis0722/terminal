@@ -87,6 +87,7 @@ namespace Microsoft.Terminal.Control
         Boolean SwitchSelectionEndpoint();
         Boolean ExpandSelectionToWord();
         void ClearBuffer(ClearBufferType clearType);
+        void Persist();
         void Close();
         Windows.Foundation.Size CharacterDimensions { get; };
         Windows.Foundation.Size MinimumSize { get; };

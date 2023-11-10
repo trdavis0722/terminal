@@ -119,19 +119,6 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
                           TraceLoggingKeyword(TIL_KEYWORD_TRACE));
     }
 
-    // Re-read the state.json from disk.
-    void ApplicationState::Reload() const noexcept
-    {
-        _read();
-    }
-
-    bool ApplicationState::IsStatePath(const winrt::hstring& filename)
-    {
-        static const auto sharedPath{ _sharedPath.filename() };
-        static const auto elevatedPath{ _elevatedPath.filename() };
-        return filename == sharedPath || filename == elevatedPath;
-    }
-
     // Method Description:
     // - See GH#11119. Removes all of the data in this ApplicationState object
     //   and resets it to the defaults. This will delete the state file! That's
@@ -299,7 +286,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
     Json::Value ApplicationState::_toJsonWithBlob(Json::Value& root, FileSource parseSource) const noexcept
     {
         {
-            auto state = _state.lock_shared();
+            const auto state = _state.lock_shared();
 
             // GH#11222: We only write properties that are of the same type (Local
             // or Shared) which we requested. If we didn't want to serialize this
@@ -314,6 +301,20 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
         return root;
     }
 
+    void ApplicationState::AppendPersistedWindowLayout(Model::WindowLayout layout)
+    {
+        {
+            const auto state = _state.lock();
+            if (!state->PersistedWindowLayouts || !*state->PersistedWindowLayouts)
+            {
+                state->PersistedWindowLayouts = winrt::single_threaded_vector<Model::WindowLayout>();
+            }
+            state->PersistedWindowLayouts->Append(std::move(layout));
+        }
+
+        _throttler();
+    }
+
     // Generate all getter/setters
 #define MTSM_APPLICATION_STATE_GEN(source, type, name, key, ...) \
     type ApplicationState::name() const noexcept                 \
@@ -326,7 +327,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
     void ApplicationState::name(const type& value) noexcept      \
     {                                                            \
         {                                                        \
-            auto state = _state.lock();                          \
+            const auto state = _state.lock();                    \
             state->name.emplace(value);                          \
         }                                                        \
                                                                  \

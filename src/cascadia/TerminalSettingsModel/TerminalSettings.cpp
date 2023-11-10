@@ -126,6 +126,11 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
 
         if (newTerminalArgs)
         {
+            if (const auto id = newTerminalArgs.SessionId(); id != winrt::guid{})
+            {
+                defaultSettings.SessionId(id);
+            }
+
             // Override commandline, starting directory if they exist in newTerminalArgs
             if (!newTerminalArgs.Commandline().empty())
             {
@@ -363,6 +368,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
         _ForceVTInput = globalSettings.ForceVTInput();
         _TrimBlockSelection = globalSettings.TrimBlockSelection();
         _DetectURLs = globalSettings.DetectURLs();
+        _SessionRestoreEnabled = globalSettings.SessionRestoreEnabled();
         _EnableUnfocusedAcrylic = globalSettings.EnableUnfocusedAcrylic();
     }
 

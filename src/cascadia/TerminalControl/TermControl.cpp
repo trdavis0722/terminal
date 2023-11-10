@@ -5,6 +5,7 @@
 #include "TermControl.h"
 
 #include <LibraryResources.h>
+#include <utils.hpp>
 
 #include "TermControlAutomationPeer.h"
 #include "../../renderer/atlas/AtlasEngine.h"
@@ -1065,7 +1066,20 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             {
                 return false;
             }
+
             _interactivity.Initialize();
+
+            if (_core.Settings().SessionRestoreEnabled())
+            {
+                const auto id = ::Microsoft::Console::Utils::GuidToPlainString(_core.Connection().SessionId());
+
+                wchar_t buffer[MAX_PATH];
+                ExpandEnvironmentStringsW(LR"(%LOCALAPPDATA%\Packages\WindowsTerminalDev_8wekyb3d8bbwe\LocalState\)", &buffer[0], MAX_PATH);
+                const auto path = fmt::format(FMT_COMPILE(L"{}buffer_{}.txt"), &buffer[0], id);
+                winrt::get_self<ControlCore>(_core)->RestoreFromPath(path.c_str());
+            }
+
+            _core.Connection().Start();
         }
         else
         {
@@ -2261,6 +2275,16 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         return _core.ExpandSelectionToWord();
     }
 
+    void TermControl::Persist() const
+    {
+        const auto id = ::Microsoft::Console::Utils::GuidToPlainString(_core.Connection().SessionId());
+
+        wchar_t buffer[MAX_PATH];
+        ExpandEnvironmentStringsW(LR"(%LOCALAPPDATA%\Packages\WindowsTerminalDev_8wekyb3d8bbwe\LocalState\)", &buffer[0], MAX_PATH);
+        const auto path = fmt::format(FMT_COMPILE(L"{}buffer_{}.txt"), &buffer[0], id);
+        winrt::get_self<ControlCore>(_core)->PersistToPath(path.c_str());
+    }
+
     void TermControl::Close()
     {
         if (!_IsClosing())
@@ -2286,6 +2310,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             }
         }
     }
+
     void TermControl::Detach()
     {
         _revokers = {};

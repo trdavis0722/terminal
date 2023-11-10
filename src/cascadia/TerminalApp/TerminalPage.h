@@ -7,7 +7,6 @@
 #include "TerminalTab.h"
 #include "AppKeyBindings.h"
 #include "AppCommandlineArgs.h"
-#include "LastTabClosedEventArgs.g.h"
 #include "RenameWindowRequestedArgs.g.h"
 #include "RequestMoveContentArgs.g.h"
 #include "RequestReceiveContentArgs.g.h"
@@ -42,15 +41,6 @@ namespace winrt::TerminalApp::implementation
     {
         ScrollUp = 0,
         ScrollDown = 1
-    };
-
-    struct LastTabClosedEventArgs : LastTabClosedEventArgsT<LastTabClosedEventArgs>
-    {
-        WINRT_PROPERTY(bool, ClearPersistedState);
-
-    public:
-        LastTabClosedEventArgs(const bool& shouldClear) :
-            _ClearPersistedState{ shouldClear } {};
     };
 
     struct RenameWindowRequestedArgs : RenameWindowRequestedArgsT<RenameWindowRequestedArgs>
@@ -121,7 +111,8 @@ namespace winrt::TerminalApp::implementation
         SuggestionsControl LoadSuggestionsUI();
 
         winrt::fire_and_forget RequestQuit();
-        winrt::fire_and_forget CloseWindow(bool bypassDialog);
+        winrt::fire_and_forget CloseWindow();
+        void PersistState();
 
         void ToggleFocusMode();
         void ToggleFullscreen();
@@ -176,7 +167,7 @@ namespace winrt::TerminalApp::implementation
 
         // -------------------------------- WinRT Events ---------------------------------
         TYPED_EVENT(TitleChanged, IInspectable, winrt::hstring);
-        TYPED_EVENT(LastTabClosed, IInspectable, winrt::TerminalApp::LastTabClosedEventArgs);
+        TYPED_EVENT(CloseWindowRequested, IInspectable, IInspectable);
         TYPED_EVENT(SetTitleBarContent, IInspectable, winrt::Windows::UI::Xaml::UIElement);
         TYPED_EVENT(FocusModeChanged, IInspectable, IInspectable);
         TYPED_EVENT(FullscreenChanged, IInspectable, IInspectable);
@@ -233,7 +224,6 @@ namespace winrt::TerminalApp::implementation
 
         std::optional<uint32_t> _loadFromPersistedLayoutIdx{};
 
-        bool _maintainStateOnTabClose{ false };
         bool _rearranging{ false };
         std::optional<int> _rearrangeFrom{};
         std::optional<int> _rearrangeTo{};
@@ -350,7 +340,6 @@ namespace winrt::TerminalApp::implementation
         void _DismissTabContextMenus();
         void _FocusCurrentTab(const bool focusAlways);
         bool _HasMultipleTabs() const;
-        void _RemoveAllTabs();
 
         void _SelectNextTab(const bool bMoveRight, const Windows::Foundation::IReference<Microsoft::Terminal::Settings::Model::TabSwitcherMode>& customTabSwitcherMode);
         bool _SelectTab(uint32_t tabIndex);

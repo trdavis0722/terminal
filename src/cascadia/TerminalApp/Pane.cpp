@@ -3,8 +3,8 @@
 
 #include "pch.h"
 #include "Pane.h"
-#include "AppLogic.h"
 
+#include "AppLogic.h"
 #include "Utils.h"
 
 #include <Mmsystem.h>
@@ -175,6 +175,11 @@ NewTerminalArgs Pane::GetTerminalArgsForPane(const bool asContent) const
     if (asContent)
     {
         args.ContentId(_control.ContentId());
+    }
+    else
+    {
+        args.SessionId(_control.Connection().SessionId());
+        _control.Persist();
     }
 
     return args;

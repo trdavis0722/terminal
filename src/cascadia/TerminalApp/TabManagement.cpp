@@ -485,7 +485,7 @@ namespace winrt::TerminalApp::implementation
             // if the user manually closed all tabs.
             // Do this only if we are the last window; the monarch will notice
             // we are missing and remove us that way otherwise.
-            _LastTabClosedHandlers(*this, winrt::make<LastTabClosedEventArgs>(!_maintainStateOnTabClose));
+            _CloseWindowRequestedHandlers(*this, nullptr);
         }
         else if (focusedTabIndex.has_value() && focusedTabIndex.value() == gsl::narrow_cast<uint32_t>(tabIndex))
         {
@@ -1137,13 +1137,5 @@ namespace winrt::TerminalApp::implementation
     bool TerminalPage::_HasMultipleTabs() const
     {
         return _tabs.Size() > 1;
-    }
-
-    void TerminalPage::_RemoveAllTabs()
-    {
-        // Since _RemoveTabs is asynchronous, create a snapshot of the  tabs we want to remove
-        std::vector<winrt::TerminalApp::TabBase> tabsToRemove;
-        std::copy(begin(_tabs), end(_tabs), std::back_inserter(tabsToRemove));
-        _RemoveTabs(tabsToRemove);
     }
 }
