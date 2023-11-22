@@ -107,8 +107,8 @@ void VtApiRoutines::_SynchronizeCursor(std::unique_ptr<IWaitRoutine>& waiter) no
 
 [[nodiscard]] HRESULT VtApiRoutines::GetConsoleInputImpl(
     IConsoleInputObject& context,
-    InputEventQueue& outEvents,
-    const size_t eventReadCount,
+    INPUT_RECORD* outEvents,
+    size_t* eventReadCount,
     INPUT_READ_HANDLE_DATA& readHandleState,
     const bool IsUnicode,
     const bool IsPeek,
@@ -410,18 +410,16 @@ void VtApiRoutines::GetLargestConsoleWindowSizeImpl(const SCREEN_INFORMATION& co
 
 [[nodiscard]] HRESULT VtApiRoutines::WriteConsoleInputAImpl(InputBuffer& context,
                                                             const std::span<const INPUT_RECORD> buffer,
-                                                            size_t& written,
-                                                            const bool append) noexcept
+                                                            size_t& written) noexcept
 {
-    return m_pUsualRoutines->WriteConsoleInputAImpl(context, buffer, written, append);
+    return m_pUsualRoutines->WriteConsoleInputAImpl(context, buffer, written);
 }
 
 [[nodiscard]] HRESULT VtApiRoutines::WriteConsoleInputWImpl(InputBuffer& context,
                                                             const std::span<const INPUT_RECORD> buffer,
-                                                            size_t& written,
-                                                            const bool append) noexcept
+                                                            size_t& written) noexcept
 {
-    return m_pUsualRoutines->WriteConsoleInputWImpl(context, buffer, written, append);
+    return m_pUsualRoutines->WriteConsoleInputWImpl(context, buffer, written);
 }
 
 extern HRESULT _ConvertCellsToWInplace(const UINT codepage,

@@ -61,6 +61,7 @@
     <ClInclude Include="..\..\inc\til\rand.h" />
     <ClInclude Include="..\..\inc\til\rect.h" />
     <ClInclude Include="..\..\inc\til\replace.h" />
+    <ClInclude Include="..\..\inc\til\ring_buffer.h" />
     <ClInclude Include="..\..\inc\til\rle.h" />
     <ClInclude Include="..\..\inc\til\size.h" />
     <ClInclude Include="..\..\inc\til\small_vector.h" />

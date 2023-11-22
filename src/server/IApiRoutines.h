@@ -67,8 +67,8 @@ public:
                                                                     ULONG& events) noexcept = 0;
 
     [[nodiscard]] virtual HRESULT GetConsoleInputImpl(IConsoleInputObject& context,
-                                                      InputEventQueue& outEvents,
-                                                      const size_t eventReadCount,
+                                                      INPUT_RECORD* outEvents,
+                                                      size_t* eventReadCount,
                                                       INPUT_READ_HANDLE_DATA& readHandleState,
                                                       const bool IsUnicode,
                                                       const bool IsPeek,
@@ -196,13 +196,11 @@ public:
 
     [[nodiscard]] virtual HRESULT WriteConsoleInputAImpl(IConsoleInputObject& context,
                                                          const std::span<const INPUT_RECORD> buffer,
-                                                         size_t& written,
-                                                         const bool append) noexcept = 0;
+                                                         size_t& written) noexcept = 0;
 
     [[nodiscard]] virtual HRESULT WriteConsoleInputWImpl(IConsoleInputObject& context,
                                                          const std::span<const INPUT_RECORD> buffer,
-                                                         size_t& written,
-                                                         const bool append) noexcept = 0;
+                                                         size_t& written) noexcept = 0;
 
     [[nodiscard]] virtual HRESULT WriteConsoleOutputAImpl(IConsoleOutputObject& context,
                                                           std::span<CHAR_INFO> buffer,

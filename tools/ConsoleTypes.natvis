@@ -133,6 +133,20 @@
         </Expand>
     </Type>
 
+    <Type Name="til::ring_buffer&lt;*&gt;">
+        <DisplayString>{{ size={_size} }}</DisplayString>
+        <Expand>
+            <Item Name="[capacity]" ExcludeView="simple">_capacity</Item>
+            <Item Name="[size]" ExcludeView="simple">_size</Item>
+            <Item Name="[writer]" ExcludeView="simple">_writer - _beg</Item>
+            <Item Name="[reader]" ExcludeView="simple">_reader - _beg</Item>
+            <IndexListItems>
+                <Size>_size</Size>
+                <ValueNode>_beg[($i + _reader - _beg) % _capacity]</ValueNode>
+            </IndexListItems>
+        </Expand>
+    </Type>
+
     <Type Name="TextBuffer">
         <DisplayString>{{ width={_width}, height={_height} }}</DisplayString>
         <Expand>

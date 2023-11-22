@@ -27,6 +27,13 @@ InteractDispatch::InteractDispatch() :
 {
 }
 
+bool InteractDispatch::WriteInput(const std::wstring_view& text)
+{
+    const auto& gci = ServiceLocator::LocateGlobals().getConsoleInformation();
+    gci.GetActiveInputBuffer()->Write(text);
+    return true;
+}
+
 // Method Description:
 // - Writes a collection of input to the host. The new input is appended to the
 //      end of the input buffer.

@@ -50,8 +50,8 @@ public:
                                                             ULONG& events) noexcept override;
 
     [[nodiscard]] HRESULT GetConsoleInputImpl(IConsoleInputObject& context,
-                                              InputEventQueue& outEvents,
-                                              const size_t eventReadCount,
+                                              INPUT_RECORD* outEvents,
+                                              size_t* eventReadCount,
                                               INPUT_READ_HANDLE_DATA& readHandleState,
                                               const bool IsUnicode,
                                               const bool IsPeek,
@@ -183,13 +183,11 @@ public:
 
     [[nodiscard]] HRESULT WriteConsoleInputAImpl(InputBuffer& context,
                                                  const std::span<const INPUT_RECORD> buffer,
-                                                 size_t& written,
-                                                 const bool append) noexcept override;
+                                                 size_t& written) noexcept override;
 
     [[nodiscard]] HRESULT WriteConsoleInputWImpl(InputBuffer& context,
                                                  const std::span<const INPUT_RECORD> buffer,
-                                                 size_t& written,
-                                                 const bool append) noexcept override;
+                                                 size_t& written) noexcept override;
 
     [[nodiscard]] HRESULT WriteConsoleOutputAImpl(SCREEN_INFORMATION& context,
                                                   std::span<CHAR_INFO> buffer,

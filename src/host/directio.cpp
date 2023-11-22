@@ -51,8 +51,8 @@ using Microsoft::Console::Interactivity::ServiceLocator;
 // block, this will be returned along with context in *ppWaiter.
 // - Or an out of memory/math/string error message in NTSTATUS format.
 [[nodiscard]] HRESULT ApiRoutines::GetConsoleInputImpl(IConsoleInputObject& inputBuffer,
-                                                       InputEventQueue& outEvents,
-                                                       const size_t eventReadCount,
+                                                       INPUT_RECORD* outEvents,
+                                                       size_t* eventReadCount,
                                                        INPUT_READ_HANDLE_DATA& readHandleState,
                                                        const bool IsUnicode,
                                                        const bool IsPeek,
@@ -62,64 +62,25 @@ using Microsoft::Console::Interactivity::ServiceLocator;
     {
         waiter.reset();
 
-        if (eventReadCount == 0)
+        if (*eventReadCount == 0)
         {
-            return STATUS_SUCCESS;
+            return S_OK;
         }
 
         LockConsole();
         auto Unlock = wil::scope_exit([&] { UnlockConsole(); });
 
-        const auto Status = inputBuffer.Read(outEvents,
-                                             eventReadCount,
-                                             IsPeek,
-                                             true,
-                                             IsUnicode,
-                                             false);
-
-        if (CONSOLE_STATUS_WAIT == Status)
+        const auto count = inputBuffer.Read(IsUnicode, IsPeek, outEvents, *eventReadCount);
+        if (count)
         {
-            // If we're told to wait until later, move all of our context
-            // to the read data object and send it back up to the server.
-            waiter = std::make_unique<DirectReadData>(&inputBuffer,
-                                                      &readHandleState,
-                                                      eventReadCount);
-        }
-        return Status;
-    }
-    CATCH_RETURN();
-}
-
-// Routine Description:
-// - Writes events to the input buffer
-// Arguments:
-// - context - the input buffer to write to
-// - events - the events to written
-// - written  - on output, the number of events written
-// - append - true if events should be written to the end of the input
-// buffer, false if they should be written to the front
-// Return Value:
-// - HRESULT indicating success or failure
-[[nodiscard]] static HRESULT _WriteConsoleInputWImplHelper(InputBuffer& context,
-                                                           const std::span<const INPUT_RECORD>& events,
-                                                           size_t& written,
-                                                           const bool append) noexcept
-{
-    try
-    {
-        written = 0;
-
-        // add to InputBuffer
-        if (append)
-        {
-            written = context.Write(events);
-        }
-        else
-        {
-            written = context.Prepend(events);
+            *eventReadCount = count;
+            return S_OK;
         }
 
-        return S_OK;
+        // If we're told to wait until later, move all of our context
+        // to the read data object and send it back up to the server.
+        waiter = std::make_unique<DirectReadData>(&inputBuffer, &readHandleState, *eventReadCount);
+        return CONSOLE_STATUS_WAIT;
     }
     CATCH_RETURN();
 }
@@ -136,8 +97,7 @@ using Microsoft::Console::Interactivity::ServiceLocator;
 // - HRESULT indicating success or failure
 [[nodiscard]] HRESULT ApiRoutines::WriteConsoleInputAImpl(InputBuffer& context,
                                                           const std::span<const INPUT_RECORD> buffer,
-                                                          size_t& written,
-                                                          const bool append) noexcept
+                                                          size_t& written) noexcept
 try
 {
     written = 0;
@@ -225,7 +185,9 @@ try
         }
     }
 
-    return _WriteConsoleInputWImplHelper(context, events, written, append);
+    context.Write(events);
+    written = buffer.size();
+    return S_OK;
 }
 CATCH_RETURN();
 
@@ -241,20 +203,19 @@ CATCH_RETURN();
 // - HRESULT indicating success or failure
 [[nodiscard]] HRESULT ApiRoutines::WriteConsoleInputWImpl(InputBuffer& context,
                                                           const std::span<const INPUT_RECORD> buffer,
-                                                          size_t& written,
-                                                          const bool append) noexcept
+                                                          size_t& written) noexcept
+try
 {
     written = 0;
 
     LockConsole();
     auto Unlock = wil::scope_exit([&] { UnlockConsole(); });
 
-    try
-    {
-        return _WriteConsoleInputWImplHelper(context, buffer, written, append);
-    }
-    CATCH_RETURN();
+    context.Write(buffer);
+    written = buffer.size();
+    return S_OK;
 }
+CATCH_RETURN();
 
 // Routine Description:
 // - This is used when the app is reading output as cells and needs them converted

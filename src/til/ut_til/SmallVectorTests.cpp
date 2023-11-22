@@ -4,6 +4,7 @@
 #include "precomp.h"
 
 #include <til/small_vector.h>
+#include <til/ring_buffer.h>
 
 using namespace std::literals;
 using namespace WEX::Common;

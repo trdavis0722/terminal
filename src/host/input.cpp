@@ -197,23 +197,12 @@ void HandleFocusEvent(const BOOL fSetFocus)
 }
 
 void HandleMenuEvent(const DWORD wParam)
+try
 {
     const auto& gci = ServiceLocator::LocateGlobals().getConsoleInformation();
-
-    size_t EventsWritten = 0;
-    try
-    {
-        EventsWritten = gci.pInputBuffer->Write(SynthesizeMenuEvent(wParam));
-        if (EventsWritten != 1)
-        {
-            LOG_HR_MSG(E_FAIL, "PutInputInBuffer: EventsWritten != 1, 1 expected");
-        }
-    }
-    catch (...)
-    {
-        LOG_HR(wil::ResultFromCaughtException());
-    }
+    gci.pInputBuffer->Write(SynthesizeMenuEvent(wParam));
 }
+CATCH_LOG()
 
 void HandleCtrlEvent(const DWORD EventType)
 {

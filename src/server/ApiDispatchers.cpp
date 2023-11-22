@@ -145,7 +145,7 @@ static DWORD TraceGetThreadId(CONSOLE_API_MSG* const m)
     RETURN_IF_FAILED(m->GetOutputBuffer(&pvBuffer, &cbBufferSize));
 
     const auto rgRecords = reinterpret_cast<INPUT_RECORD*>(pvBuffer);
-    const auto cRecords = cbBufferSize / sizeof(INPUT_RECORD);
+    auto cRecords = cbBufferSize / sizeof(INPUT_RECORD);
 
     const auto fIsPeek = WI_IsFlagSet(a->Flags, CONSOLE_READ_NOREMOVE);
     const auto fIsWaitAllowed = WI_IsFlagClear(a->Flags, CONSOLE_READ_NOWAIT);
@@ -153,11 +153,10 @@ static DWORD TraceGetThreadId(CONSOLE_API_MSG* const m)
     const auto pInputReadHandleData = pHandleData->GetClientInput();
 
     std::unique_ptr<IWaitRoutine> waiter;
-    InputEventQueue outEvents;
     auto hr = m->_pApiRoutines->GetConsoleInputImpl(
         *pInputBuffer,
-        outEvents,
-        cRecords,
+        rgRecords,
+        &cRecords,
         *pInputReadHandleData,
         a->Unicode,
         fIsPeek,
@@ -165,10 +164,10 @@ static DWORD TraceGetThreadId(CONSOLE_API_MSG* const m)
 
     // We must return the number of records in the message payload (to alert the client)
     // as well as in the message headers (below in SetReplyInformation) to alert the driver.
-    LOG_IF_FAILED(SizeTToULong(outEvents.size(), &a->NumRecords));
+    LOG_IF_FAILED(SizeTToULong(cRecords, &a->NumRecords));
 
     size_t cbWritten;
-    LOG_IF_FAILED(SizeTMult(outEvents.size(), sizeof(INPUT_RECORD), &cbWritten));
+    LOG_IF_FAILED(SizeTMult(cRecords, sizeof(INPUT_RECORD), &cbWritten));
 
     if (nullptr != waiter.get())
     {
@@ -195,10 +194,6 @@ static DWORD TraceGetThreadId(CONSOLE_API_MSG* const m)
             cbWritten = 0;
             hr = S_OK;
         }
-    }
-    else
-    {
-        std::ranges::copy(outEvents, rgRecords);
     }
 
     if (SUCCEEDED(hr))
@@ -801,11 +796,11 @@ static DWORD TraceGetThreadId(CONSOLE_API_MSG* const m)
     std::span<const INPUT_RECORD> buffer(reinterpret_cast<INPUT_RECORD*>(pvBuffer), cbSize / sizeof(INPUT_RECORD));
     if (!a->Unicode)
     {
-        RETURN_IF_FAILED(m->_pApiRoutines->WriteConsoleInputAImpl(*pInputBuffer, buffer, written, !!a->Append));
+        RETURN_IF_FAILED(m->_pApiRoutines->WriteConsoleInputAImpl(*pInputBuffer, buffer, written));
     }
     else
     {
-        RETURN_IF_FAILED(m->_pApiRoutines->WriteConsoleInputWImpl(*pInputBuffer, buffer, written, !!a->Append));
+        RETURN_IF_FAILED(m->_pApiRoutines->WriteConsoleInputWImpl(*pInputBuffer, buffer, written));
     }
 
     RETURN_IF_FAILED(SizeTToULong(written, &a->NumRecords));

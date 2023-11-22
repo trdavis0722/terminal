@@ -27,7 +27,8 @@ namespace Microsoft::Console::VirtualTerminal
 #pragma warning(disable : 26432) // suppress rule of 5 violation on interface because tampering with this is fraught with peril
         virtual ~IInteractDispatch() = default;
 #pragma warning(pop)
-
+        
+        virtual bool WriteInput(const std::wstring_view& text) = 0;
         virtual bool WriteInput(const std::span<const INPUT_RECORD>& inputEvents) = 0;
 
         virtual bool WriteCtrlKey(const INPUT_RECORD& event) = 0;

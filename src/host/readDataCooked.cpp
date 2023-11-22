@@ -392,22 +392,23 @@ size_t COOKED_READ_DATA::_wordNext(const std::wstring_view& chars, size_t positi
 // Reads text off of the InputBuffer and dispatches it to the current popup or otherwise into the _buffer contents.
 void COOKED_READ_DATA::_readCharInputLoop()
 {
+    wchar_t buffer[128];
+
     while (_state == State::Accumulating)
     {
         const auto hasPopup = !_popups.empty();
         auto charOrVkey = UNICODE_NULL;
         auto commandLineEditingKeys = false;
         auto popupKeys = false;
-        const auto pCommandLineEditingKeys = hasPopup ? nullptr : &commandLineEditingKeys;
-        const auto pPopupKeys = hasPopup ? &popupKeys : nullptr;
+        //const auto pCommandLineEditingKeys = hasPopup ? nullptr : &commandLineEditingKeys;
+        //const auto pPopupKeys = hasPopup ? &popupKeys : nullptr;
         DWORD modifiers = 0;
 
-        const auto status = GetChar(_pInputBuffer, &charOrVkey, true, pCommandLineEditingKeys, pPopupKeys, &modifiers);
-        if (status == CONSOLE_STATUS_WAIT)
+        const auto count = _pInputBuffer->Read(true, false, &buffer, 128);
+        if (count == 0)
         {
             break;
         }
-        THROW_IF_NTSTATUS_FAILED(status);
 
         if (hasPopup)
         {
@@ -423,7 +424,8 @@ void COOKED_READ_DATA::_readCharInputLoop()
             }
             else
             {
-                _handleChar(charOrVkey, modifiers);
+                for (size_t i = 0; i < count; ++i)
+                    _handleChar(buffer[i], modifiers);
             }
         }
     }
