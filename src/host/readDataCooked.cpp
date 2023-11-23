@@ -393,6 +393,9 @@ size_t COOKED_READ_DATA::_wordNext(const std::wstring_view& chars, size_t positi
 void COOKED_READ_DATA::_readCharInputLoop()
 {
     wchar_t buffer[128];
+    InputBuffer::ReadDescriptor readDesc{
+        .wide = true,
+    };
 
     while (_state == State::Accumulating)
     {
@@ -404,8 +407,8 @@ void COOKED_READ_DATA::_readCharInputLoop()
         //const auto pPopupKeys = hasPopup ? &popupKeys : nullptr;
         DWORD modifiers = 0;
 
-        const auto count = _pInputBuffer->Read(true, false, &buffer, 128);
-        if (count == 0)
+        const auto bytes = _pInputBuffer->Read(readDesc, &buffer, sizeof(buffer));
+        if (bytes == 0)
         {
             break;
         }
@@ -424,7 +427,8 @@ void COOKED_READ_DATA::_readCharInputLoop()
             }
             else
             {
-                for (size_t i = 0; i < count; ++i)
+                const auto c = bytes / 2;
+                for (size_t i = 0; i < c; ++i)
                     _handleChar(buffer[i], modifiers);
             }
         }

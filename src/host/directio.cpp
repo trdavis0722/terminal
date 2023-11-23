@@ -70,10 +70,15 @@ using Microsoft::Console::Interactivity::ServiceLocator;
         LockConsole();
         auto Unlock = wil::scope_exit([&] { UnlockConsole(); });
 
-        const auto count = inputBuffer.Read(IsUnicode, IsPeek, outEvents, *eventReadCount);
+        const InputBuffer::ReadDescriptor readDesc{
+            .wide = IsUnicode,
+            .records = true,
+            .peek = IsPeek,
+        };
+        const auto count = inputBuffer.Read(readDesc, outEvents, *eventReadCount * sizeof(INPUT_RECORD));
         if (count)
         {
-            *eventReadCount = count;
+            *eventReadCount = count / sizeof(INPUT_RECORD);
             return S_OK;
         }
 

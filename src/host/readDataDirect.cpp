@@ -93,13 +93,17 @@ try
         return true;
     }
 
-    const auto count = _pInputBuffer->Read(fIsUnicode, false, pOutputData, _eventReadCount);
+    const InputBuffer::ReadDescriptor readDesc{
+        .wide = fIsUnicode,
+        .records = true,
+    };
+    const auto count = _pInputBuffer->Read(readDesc, pOutputData, _eventReadCount * sizeof(INPUT_RECORD));
     if (!count)
     {
         return false;
     }
 
-    *pNumBytes = count * sizeof(INPUT_RECORD);
+    *pNumBytes = count;
     return true;
 }
 catch (...)

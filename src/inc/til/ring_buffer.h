@@ -34,9 +34,8 @@ namespace til
             _reader = _beg;
             _size = 0;
         }
-        
-        __declspec(noinline)
-        void write(const T& data)
+
+        __declspec(noinline) void write(const T& data)
         {
             const auto new_size = _size + 1;
             if (new_size > _capacity)
@@ -57,9 +56,8 @@ namespace til
             _writer = writer;
             _size = new_size;
         }
-        
-        __declspec(noinline)
-        void write(const T* data, size_t count)
+
+        __declspec(noinline) void write(const T* data, size_t count)
         {
             const auto new_size = _size + count;
             if (new_size > _capacity)
@@ -87,7 +85,7 @@ namespace til
         }
 
         __declspec(noinline)
-        T* last_written() const noexcept
+            T* last_written() const noexcept
         {
             if (!_size)
             {
@@ -217,7 +215,9 @@ namespace til
 
             auto new_writer = data;
             new_writer = _copy(new_writer, _reader, _end - _reader);
-            new_writer = _copy(new_writer, _beg, _writer - _beg);        _deallocate(_beg);
+            new_writer = _copy(new_writer, _beg, _writer - _beg);
+
+            _deallocate(_beg);
 
             _beg = data;
             _end = data + new_cap;

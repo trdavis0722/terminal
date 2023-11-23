@@ -16,6 +16,12 @@ namespace Microsoft::Console::Render
     class VtEngine;
 }
 
+struct InputBufferTextChunk
+{
+    WORD EventType; // = 0xff00 + amount of characters stored in buffer
+    wchar_t buffer[9];
+};
+
 class InputBuffer final : public ConsoleObjectHeader
 {
 public:
@@ -45,8 +51,13 @@ public:
     void Flush();
     void FlushAllButKeys();
 
-    size_t Read(bool wide, bool peek, void* data, size_t capacity);
-    size_t Read(bool wide, bool peek, INPUT_RECORD* data, size_t capacity);
+    struct ReadDescriptor
+    {
+        bool wide;
+        bool records;
+        bool peek;
+    };
+    size_t Read(ReadDescriptor desc, void* data, size_t capacityInBytes);
 
     void Write(const INPUT_RECORD& record);
     void Write(const std::span<const INPUT_RECORD>& records);
@@ -85,15 +96,16 @@ private:
     std::deque<INPUT_RECORD> _cachedInputEvents;
     ReadingMode _readingMode = ReadingMode::StringA;
 
-    til::ring_buffer<Span> _spans;
-    til::ring_buffer<INPUT_RECORD> _records;
-    til::ring_buffer<wchar_t> _text;
+    std::unique_ptr<INPUT_RECORD[]> _buffer;
+    size_t _bufferMask = 0;
+    size_t _bufferReader = 0;
+    size_t _bufferWriter = 0;
 
     INPUT_RECORD _writePartialByteSequence{};
     bool _writePartialByteSequenceAvailable = false;
     Microsoft::Console::VirtualTerminal::TerminalInput _termInput;
 
-    void _writeSpan(SpanType type, size_t length);
+    INPUT_RECORD* _allocateRecord();
     void _switchReadingMode(ReadingMode mode);
     void _switchReadingModeSlowPath(ReadingMode mode);
     void _WriteBuffer(const std::span<const INPUT_RECORD>& inRecords, _Out_ size_t& eventsWritten, _Out_ bool& setWaitEvent);

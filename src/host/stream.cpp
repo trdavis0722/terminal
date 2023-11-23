@@ -262,31 +262,13 @@ NT_CATCH_RETURN()
 try
 {
     UNREFERENCED_PARAMETER(readHandleState);
-
     bytesRead = 0;
 
-    auto cap = buffer.size();
-    if (unicode)
-    {
-        cap /= 2;
-    }
-
-    const auto count = inputBuffer.Read(unicode, false, buffer.data(), cap);
-    if (count == 0)
-    {
-        return CONSOLE_STATUS_WAIT;
-    }
-
-    // Once we read some data off the InputBuffer it can't be read again, so we
-    // need to make sure to return a success status to the client in that case.
-    auto bytes = count;
-    if (unicode)
-    {
-        bytes *= 2;
-    }
-
-    bytesRead = bytes;
-    return STATUS_SUCCESS;
+    const InputBuffer::ReadDescriptor readDesc{
+        .wide = unicode,
+    };
+    bytesRead = inputBuffer.Read(readDesc, buffer.data(), buffer.size());
+    return bytesRead == 0 ? CONSOLE_STATUS_WAIT : STATUS_SUCCESS;
 }
 NT_CATCH_RETURN()
 

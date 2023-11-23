@@ -325,79 +325,12 @@ void InputBuffer::FlushAllButKeys()
 {
 }
 
-size_t InputBuffer::Read(bool wide, bool peek, void* data, const size_t capacity)
+size_t InputBuffer::Read(ReadDescriptor desc, void* data, size_t capacityInBytes)
 {
-    if (!wide)
-    {
-        return 0;
-    }
+    auto remaining = capacityInBytes;
+    const auto unitSize = desc.records ? sizeof(INPUT_RECORD) : (desc.wide ? 2 : 1);
 
-    auto remaining = capacity;
-    auto out = static_cast<wchar_t*>(data);
-
-    while (remaining > 0)
-    {
-        const auto span = _spans.peek();
-        if (!span)
-        {
-            break;
-        }
-
-        switch (span->type)
-        {
-        case SpanType::Record:
-        {
-            while (remaining > 0 && span->length > 0)
-            {
-                const auto r = _records.peek();
-                if (!r)
-                {
-                    break;
-                }
-                if (r->EventType == KEY_EVENT && r->Event.KeyEvent.bKeyDown && r->Event.KeyEvent.uChar.UnicodeChar)
-                {
-                    *out++ = r->Event.KeyEvent.uChar.UnicodeChar;
-                    remaining--;
-                }
-                _records.advance(1);
-                span->length--;
-            }
-            if (!span->length)
-            {
-                _spans.advance(1);
-            }
-            break;
-        }
-        case SpanType::Text:
-        {
-            const auto can = std::min(remaining, span->length);
-
-            out += _text.read(out, can);
-            remaining -= can;
-
-            span->length -= can;
-            if (!span->length)
-            {
-                _spans.advance(1);
-            }
-            break;
-        }
-        }
-    }
-
-    return capacity - remaining;
-}
-
-size_t InputBuffer::Read(bool wide, bool peek, INPUT_RECORD* data, const size_t capacity)
-{
-    if (!wide)
-    {
-        return 0;
-    }
-
-    auto remaining = capacity;
-
-    while (remaining > 0)
+    /*while (remaining > unitSize)
     {
         const auto span = _spans.peek();
         if (!span)
@@ -415,6 +348,21 @@ size_t InputBuffer::Read(bool wide, bool peek, INPUT_RECORD* data, const size_t 
             remaining -= can;
 
             span->length -= can;
+            if (!span->length)
+            {
+                _spans.advance(1);
+            }
+
+            while (remaining > 0 && span->length > 0)
+            {
+                const auto r = _records.peek();
+                if (!r)
+                {
+                    break;
+                }
+                _records.advance(1);
+                span->length--;
+            }
             if (!span->length)
             {
                 _spans.advance(1);
@@ -442,9 +390,9 @@ size_t InputBuffer::Read(bool wide, bool peek, INPUT_RECORD* data, const size_t 
             break;
         }
         }
-    }
+    }*/
 
-    return capacity - remaining;
+    return capacityInBytes - remaining;
 }
 
 void InputBuffer::Write(const INPUT_RECORD& record)
@@ -453,44 +401,84 @@ void InputBuffer::Write(const INPUT_RECORD& record)
 }
 
 void InputBuffer::Write(const std::span<const INPUT_RECORD>& records)
-{
-    if (!records.empty())
-    {
-        _records.write(records.data(), records.size());
-        _writeSpan(SpanType::Record, records.size());
-    }
-}
-
-void InputBuffer::Write(const std::wstring_view& text)
 try
 {
-    if (!text.empty())
+    if (records.empty())
     {
-        _text.write(text.data(), text.size());
-        _writeSpan(SpanType::Text, text.size());
-    }
-}
-CATCH_LOG()
-
-void InputBuffer::_writeSpan(SpanType type, size_t length)
-{
-    auto lastSpan = _spans.last_written();
-    const auto initiallyEmpty = !lastSpan;
-
-    if (!lastSpan || lastSpan->type != type)
-    {
-        _spans.write({ type, 0 });
-        lastSpan = _spans.last_written();
+        return;
     }
 
-    lastSpan->length += length;
+    const auto initiallyEmpty = _bufferWriter == _bufferReader;
+
+    for (const auto& r : records)
+    {
+        *_allocateRecord() = r;
+    }
 
     if (initiallyEmpty)
     {
         ServiceLocator::LocateGlobals().hInputEvent.SetEvent();
     }
-
     WakeUpReadersWaitingForData();
+}
+CATCH_LOG()
+
+void InputBuffer::Write(const std::wstring_view& text)
+try
+{
+    if (text.empty())
+    {
+        return;
+    }
+
+    const auto initiallyEmpty = _bufferWriter == _bufferReader;
+
+    if (!initiallyEmpty && text.size() < 9)
+    {
+        auto& last = _buffer[(_bufferWriter + _bufferMask) & _bufferMask];
+        if (last.EventType >= 0xff00 && (last.EventType + text.size()) <= 0xff09)
+        {
+            auto& lastp = *reinterpret_cast<InputBufferTextChunk*>(&last);
+        }
+    }
+
+    if (initiallyEmpty)
+    {
+        ServiceLocator::LocateGlobals().hInputEvent.SetEvent();
+    }
+    WakeUpReadersWaitingForData();
+}
+CATCH_LOG()
+
+INPUT_RECORD* InputBuffer::_allocateRecord()
+{
+    // Use a virtual ring buffer
+    // Use segments with length header
+    // Keep a pointer to the last segment
+
+    if ((_bufferWriter + 1) & _bufferMask == _bufferReader)
+    {
+        const auto oldCap = _bufferMask + 1;
+        const auto newCap = std::max(size_t{ 128 }, oldCap * 2);
+        auto newBuf = std::make_unique_for_overwrite<INPUT_RECORD[]>(newCap);
+
+        const auto src1 = _buffer.get() + _bufferReader;
+        const auto len1 = oldCap - _bufferReader;
+        const auto src2 = _buffer.get();
+        const auto len2 = _bufferWriter;
+        memcpy(newBuf.get(), src1, len1);
+        memcpy(newBuf.get() + len1, src2, len2);
+
+        _buffer = std::move(newBuf);
+        _bufferReader = 0;
+        _bufferWriter = len1 + len2;
+    }
+
+    const auto ptr = _buffer.get() + _bufferWriter;
+
+    _bufferWriter = (_bufferWriter + 1) & _bufferMask;
+
+    return ptr;
 }
 
 // This can be considered a "privileged" variant of Write() which allows FOCUS_EVENTs to generate focus VT sequences.

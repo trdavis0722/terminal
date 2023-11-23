@@ -61,12 +61,16 @@
     <Type Name="_FOCUS_EVENT_RECORD">
         <DisplayString>focus:{bSetFocus}</DisplayString>
     </Type>
+    <Type Name="InputBufferTextChunk">
+        <DisplayString>buffer:{buffer}</DisplayString>
+    </Type>
     <Type Name="_INPUT_RECORD">
         <DisplayString Condition="EventType == 0x0001">Key {Event.KeyEvent}</DisplayString>
         <DisplayString Condition="EventType == 0x0002">Mouse {Event.MouseEvent}</DisplayString>
         <DisplayString Condition="EventType == 0x0004">WindowBufferSize {Event.WindowBufferSizeEvent}</DisplayString>
         <DisplayString Condition="EventType == 0x0008">Menu {Event.MenuEvent}</DisplayString>
         <DisplayString Condition="EventType == 0x0010">Focus {Event.FocusEvent}</DisplayString>
+        <DisplayString Condition="EventType &gt;= 0xff00">Text (internal) "{*(InputBufferTextChunk*)&Event}"</DisplayString>
     </Type>
 
     <Type Name="til::size">
