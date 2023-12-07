@@ -146,7 +146,6 @@ void WindowEmperor::WaitForWindows()
 
 void WindowEmperor::_createNewWindowThread(const Remoting::WindowRequestedArgs& args)
 {
-    Remoting::Peasant peasant{ _manager.CreatePeasant(args) };
     std::shared_ptr<WindowThread> window{ nullptr };
 
     // FIRST: Attempt to reheat an existing window that we refrigerated for
@@ -168,7 +167,7 @@ void WindowEmperor::_createNewWindowThread(const Remoting::WindowRequestedArgs& 
         // Cool! Let's increment the number of active windows, and re-heat it.
         _windowThreadInstances.fetch_add(1, std::memory_order_relaxed);
 
-        window->Microwave(args, peasant);
+        window->Microwave(args);
         // This will unblock the event we're waiting on in KeepWarm, and the
         // window thread (started below) will continue through it's loop
         return;
@@ -176,8 +175,8 @@ void WindowEmperor::_createNewWindowThread(const Remoting::WindowRequestedArgs& 
 
     // At this point, there weren't any pending refrigerated threads we could
     // just use. That's fine. Let's just go create a new one.
-
-    window = std::make_shared<WindowThread>(_app.Logic(), args, _manager, peasant);
+    
+    window = std::make_shared<WindowThread>(_app.Logic(), args, _manager);
 
     std::weak_ptr<WindowEmperor> weakThis{ weak_from_this() };
 
@@ -205,58 +204,55 @@ void WindowEmperor::_createNewWindowThread(const Remoting::WindowRequestedArgs& 
             {
                 self->_windowStartedHandlerPostXAML(window);
             }
-            while (window->KeepWarm())
+
+            // Now that the window is ready to go, we can add it to our list of windows,
+            // because we know it will be well behaved.
+            //
+            // Be sure to only modify the list of windows under lock.
+
+            if (auto self{ weakThis.lock() })
             {
-                // Now that the window is ready to go, we can add it to our list of windows,
-                // because we know it will be well behaved.
-                //
-                // Be sure to only modify the list of windows under lock.
+                auto lockedWindows{ self->_windows.lock() };
+                lockedWindows->push_back(window);
+            }
+            auto removeWindow = wil::scope_exit([&]() {
+                if (auto self{ weakThis.lock() })
+                {
+                    self->_removeWindow(window->PeasantID());
+                }
+            });
+
+            auto decrementWindowCount = wil::scope_exit([&]() {
+                if (auto self{ weakThis.lock() })
+                {
+                    self->_decrementWindowCount();
+                }
+            });
+
+            window->RunMessagePump();
+
+            // Manually trigger the cleanup callback. This will ensure that we
+            // remove the window from our list of windows, before we release the
+            // AppHost (and subsequently, the host's Logic() member that we use
+            // elsewhere).
+            removeWindow.reset();
+
+            // On Windows 11, we DONT want to refrigerate the window. There,
+            // we can just close it like normal. Break out of the loop, so
+            // we don't try to put this window in the fridge.
+            if (Utils::IsWindows11())
+            {
+                decrementWindowCount.reset();
+                break;
+            }
+            else
+            {
+                decrementWindowCount.reset();
 
                 if (auto self{ weakThis.lock() })
                 {
-                    auto lockedWindows{ self->_windows.lock() };
-                    lockedWindows->push_back(window);
-                }
-                auto removeWindow = wil::scope_exit([&]() {
-                    if (auto self{ weakThis.lock() })
-                    {
-                        self->_removeWindow(window->PeasantID());
-                    }
-                });
-
-                auto decrementWindowCount = wil::scope_exit([&]() {
-                    if (auto self{ weakThis.lock() })
-                    {
-                        self->_decrementWindowCount();
-                    }
-                });
-
-                window->RunMessagePump();
-
-                // Manually trigger the cleanup callback. This will ensure that we
-                // remove the window from our list of windows, before we release the
-                // AppHost (and subsequently, the host's Logic() member that we use
-                // elsewhere).
-                removeWindow.reset();
-
-                // On Windows 11, we DONT want to refrigerate the window. There,
-                // we can just close it like normal. Break out of the loop, so
-                // we don't try to put this window in the fridge.
-                if (Utils::IsWindows11())
-                {
-                    decrementWindowCount.reset();
-                    break;
-                }
-                else
-                {
-                    window->Refrigerate();
-                    decrementWindowCount.reset();
-
-                    if (auto self{ weakThis.lock() })
-                    {
-                        auto fridge{ self->_oldThreads.lock() };
-                        fridge->push_back(window);
-                    }
+                    auto fridge{ self->_oldThreads.lock() };
+                    fridge->push_back(window);
                 }
             }
 
@@ -586,10 +582,6 @@ winrt::fire_and_forget WindowEmperor::_close()
 {
     {
         auto fridge{ _oldThreads.lock() };
-        for (auto& window : *fridge)
-        {
-            window->ThrowAway();
-        }
         fridge->clear();
     }
 

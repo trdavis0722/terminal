@@ -33,8 +33,7 @@ constexpr const auto FrameUpdateInterval = std::chrono::milliseconds(16);
 AppHost::AppHost(const winrt::TerminalApp::AppLogic& logic,
                  winrt::Microsoft::Terminal::Remoting::WindowRequestedArgs args,
                  const Remoting::WindowManager& manager,
-                 const Remoting::Peasant& peasant,
-                 std::unique_ptr<IslandWindow> window) noexcept :
+                 const Remoting::Peasant& peasant) noexcept :
     _appLogic{ logic },
     _windowLogic{ nullptr }, // don't make one, we're going to take a ref on app's
     _windowManager{ manager },
@@ -50,21 +49,13 @@ AppHost::AppHost(const winrt::TerminalApp::AppLogic& logic,
     // _HandleCommandlineArgs will create a _windowLogic
     _useNonClientArea = _windowLogic.GetShowTabsInTitlebar();
 
-    const bool isWarmStart = window != nullptr;
-    if (isWarmStart)
+    if (_useNonClientArea)
     {
-        _window = std::move(window);
+        _window = std::make_unique<NonClientIslandWindow>(_windowLogic.GetRequestedTheme());
     }
     else
     {
-        if (_useNonClientArea)
-        {
-            _window = std::make_unique<NonClientIslandWindow>(_windowLogic.GetRequestedTheme());
-        }
-        else
-        {
-            _window = std::make_unique<IslandWindow>();
-        }
+        _window = std::make_unique<IslandWindow>();
     }
 
     // Update our own internal state tracking if we're in quake mode or not.
@@ -470,33 +461,6 @@ void AppHost::_revokeWindowCallbacks()
     _window->UpdateSettingsRequested(_windowCallbacks.UpdateSettingsRequested);
     _window->MaximizeChanged(_windowCallbacks.MaximizeChanged);
     _window->AutomaticShutdownRequested(_windowCallbacks.AutomaticShutdownRequested);
-}
-
-// revoke our callbacks, discard our XAML content (TerminalWindow &
-// TerminalPage), and hand back our IslandWindow. This does _not_ close the XAML
-// island for this thread. We should not be re-used after this, and our caller
-// can destruct us like they normally would during a close. The returned
-// IslandWindow will retain ownership of the DesktopWindowXamlSource, for later
-// reuse.
-[[nodiscard]] std::unique_ptr<IslandWindow> AppHost::Refrigerate()
-{
-    // After calling _window->Close() we should avoid creating more WinUI related actions.
-    // I suspect WinUI wouldn't like that very much. As such unregister all event handlers first.
-    _revokers = {};
-    _showHideWindowThrottler.reset();
-    _stopFrameTimer();
-    _revokeWindowCallbacks();
-
-    // DO NOT CLOSE THE WINDOW
-    _window->Refrigerate();
-
-    if (_windowLogic)
-    {
-        _windowLogic.DismissDialog();
-        _windowLogic = nullptr;
-    }
-
-    return std::move(_window);
 }
 
 // Method Description:
